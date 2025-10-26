@@ -13,9 +13,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.voluntapp.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Voluntapp uses your location to show nearby volunteering opportunities."
+      }
     },
     "android": {
+      "package": "com.voluntapp.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
