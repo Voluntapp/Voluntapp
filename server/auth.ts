@@ -42,7 +42,7 @@ export function registerAuthRoutes(app: Express) {
         if (existingPhone[0]) return res.status(409).json({ message: "Phone already in use" });
       }
 
-      const [created] = await db.insert(users).values({
+      await db.insert(users).values({
         email: email || null,
         phone: phone || null,
         passwordHash,
@@ -53,11 +53,13 @@ export function registerAuthRoutes(app: Express) {
         phoneVerified: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }).returning();
+      });
+      const [created] = await db.select().from(users).where(email ? eq(users.email, email) : eq(users.phone, phone!)).limit(1);
 
-      const token = jwt.sign({ sub: created.id }, JWT_SECRET, { expiresIn: "7d" });
-      res.cookie(COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", secure: false, maxAge: 7*24*60*60*1000 });
-      res.status(201).json({ id: created.id });
+      const token = jwt.sign({ sub: created!.id }, JWT_SECRET, { expiresIn: "7d" });
+      const isProd = process.env.NODE_ENV === 'production';
+      res.cookie(COOKIE_NAME, token, { httpOnly: true, sameSite: isProd ? "none" : "lax", secure: isProd, maxAge: 7*24*60*60*1000 });
+      res.status(201).json({ id: created!.id, token });
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to sign up" });
     }
@@ -76,8 +78,9 @@ export function registerAuthRoutes(app: Express) {
       if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
       const token = jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: "7d" });
-      res.cookie(COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", secure: false, maxAge: 7*24*60*60*1000 });
-      res.json({ id: user.id });
+      const isProd = process.env.NODE_ENV === 'production';
+      res.cookie(COOKIE_NAME, token, { httpOnly: true, sameSite: isProd ? "none" : "lax", secure: isProd, maxAge: 7*24*60*60*1000 });
+      res.json({ id: user.id, token });
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to login" });
     }
@@ -97,7 +100,11 @@ export function registerAuthRoutes(app: Express) {
 
 export function isAuthenticated(req: Request & { userId?: string }, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
+    let token = req.cookies?.[COOKIE_NAME];
+    if (!token && typeof req.headers.authorization === 'string') {
+      const [scheme, value] = req.headers.authorization.split(' ');
+      if (scheme?.toLowerCase() === 'bearer' && value) token = value;
+    }
     if (!token) return res.status(401).json({ message: "Unauthorized" });
     const decoded = jwt.verify(token, JWT_SECRET) as { sub: string };
     req.userId = decoded.sub;

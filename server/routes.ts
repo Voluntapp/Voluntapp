@@ -52,10 +52,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.userId as string;
       const user = await storage.getUser(userId);
+      const interests: string[] = Array.isArray(user?.interests) ? (user!.interests as string[]) : [];
       const opportunities = await storage.getOpportunitiesWithMatching(
         user?.latitude,
         user?.longitude,
-        user?.interests || []
+        interests
       );
       res.json(opportunities);
     } catch (error) {

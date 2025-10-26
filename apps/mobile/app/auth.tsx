@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { api } from '@/lib/api';
+import { setAuthToken } from '@/lib/api';
 
 export default function Auth() {
   const [identifier, setIdentifier] = useState('');
@@ -11,6 +12,8 @@ export default function Auth() {
     try {
       const res = await api('/api/auth/login', { method: 'POST', body: { identifier, password } });
       if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      await setAuthToken(data.token || null);
       Alert.alert('Logged in');
     } catch (e: any) {
       Alert.alert('Login failed', e.message);
@@ -21,6 +24,8 @@ export default function Auth() {
     try {
       const res = await api('/api/auth/signup', { method: 'POST', body: { email: identifier.includes('@') ? identifier : undefined, phone: !identifier.includes('@') ? identifier : undefined, password, name, role: 'volunteer' } });
       if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      await setAuthToken(data.token || null);
       Alert.alert('Signed up');
     } catch (e: any) {
       Alert.alert('Signup failed', e.message);

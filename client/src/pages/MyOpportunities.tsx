@@ -38,7 +38,7 @@ export default function MyOpportunities() {
           <p className="text-sm text-muted-foreground mb-2">{app.opportunity.location}</p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="w-3 h-3" />
-            <span>Applied {new Date(app.appliedAt).toLocaleDateString()}</span>
+            <span>Applied {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : ""}</span>
           </div>
         </div>
         <Badge

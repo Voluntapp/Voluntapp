@@ -28,7 +28,8 @@ function Router() {
   }
 
   // Check if user needs onboarding (no location or interests set)
-  const needsOnboarding = !user?.location || !user?.interests || user.interests.length === 0;
+  const interests = (user?.interests && Array.isArray(user.interests)) ? user.interests : [];
+  const needsOnboarding = !user?.location || interests.length === 0;
   
   if (needsOnboarding) {
     return (

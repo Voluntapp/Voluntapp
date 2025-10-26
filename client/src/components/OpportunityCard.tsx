@@ -83,7 +83,9 @@ export default function OpportunityCard({
             )}
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              <span>{opportunity.volunteersNeeded - opportunity.volunteersApplied} spots left</span>
+              <span>
+                {(Number(opportunity.volunteersNeeded ?? 0) - Number(opportunity.volunteersApplied ?? 0))} spots left
+              </span>
             </div>
           </div>
           

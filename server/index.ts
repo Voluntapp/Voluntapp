@@ -1,9 +1,14 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { registerAuthRoutes } from "./auth";
 
 const app = express();
+
+// CORS for cross-origin frontend (mobile/web)
+const allowedOrigin = process.env.CORS_ORIGIN || true;
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 app.use(express.json({
   verify: (req: Request & { rawBody?: any }, _res: Response, buf: any) => {

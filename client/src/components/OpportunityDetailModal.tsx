@@ -130,7 +130,7 @@ export default function OpportunityDetailModal({
               <div>
                 <p className="text-muted-foreground">Volunteers Needed</p>
                 <p className="font-medium">
-                  {opportunity.volunteersNeeded - opportunity.volunteersApplied} spots left
+                  {Number(opportunity.volunteersNeeded ?? 0) - Number(opportunity.volunteersApplied ?? 0)} spots left
                 </p>
               </div>
             </div>
@@ -143,11 +143,11 @@ export default function OpportunityDetailModal({
             </p>
           </div>
           
-          {opportunity.skills && opportunity.skills.length > 0 && (
+          {Array.isArray(opportunity.skills) && opportunity.skills.length > 0 && (
             <div className="mb-6">
               <h3 className="font-semibold mb-2">Skills</h3>
               <div className="flex flex-wrap gap-2">
-                {opportunity.skills.map((skill, i) => (
+                {opportunity.skills.map((skill: string, i: number) => (
                   <Badge key={i} variant="outline">{skill}</Badge>
                 ))}
               </div>

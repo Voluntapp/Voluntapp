@@ -17,4 +17,4 @@ if (databaseUrl) {
   connection = mysql.createPool({ host, user, password, database, port, waitForConnections: true, connectionLimit: 10 });
 }
 
-export const db = drizzle(connection, { schema });
+export const db = drizzle(connection, { schema, mode: 'default' });
