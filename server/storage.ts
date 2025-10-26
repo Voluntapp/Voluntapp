@@ -16,6 +16,8 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { calculateDistance } from "./locationService";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -47,39 +49,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
+    // Ensure id present
+    const id = (userData as any).id || randomUUID();
+    await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+      .values({ ...(userData as any), id, updatedAt: new Date() })
+      .onDuplicateKeyUpdate({
+        set: { ...(userData as any), updatedAt: new Date() },
+      });
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return user!;
   }
 
   async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User> {
-    const [user] = await db
+    await db
       .update(users)
       .set({
-        ...data,
+        ...(data as any),
         updatedAt: new Date(),
       })
-      .where(eq(users.id, id))
-      .returning();
-    return user;
+      .where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return user!;
   }
 
   // Opportunity operations
   async createOpportunity(opportunityData: InsertOpportunity): Promise<Opportunity> {
-    const [opportunity] = await db
+    const id = (opportunityData as any).id || randomUUID();
+    await db
       .insert(opportunities)
-      .values(opportunityData)
-      .returning();
-    return opportunity;
+      .values({ ...(opportunityData as any), id });
+    const [row] = await db.select().from(opportunities).where(eq(opportunities.id, id)).limit(1);
+    return row!;
   }
 
   async getOpportunity(id: string): Promise<OpportunityWithOrganization | undefined> {
@@ -130,7 +131,6 @@ export class DatabaseStorage implements IStorage {
     }));
 
     // Calculate matching scores
-    const { calculateDistance } = require("./locationService");
     const scoredOpportunities = allOpportunities.map(opp => {
       let score = 0;
       
@@ -178,15 +178,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOpportunity(id: string, data: UpdateOpportunity): Promise<Opportunity> {
-    const [opportunity] = await db
+    await db
       .update(opportunities)
       .set({
-        ...data,
+        ...(data as any),
         updatedAt: new Date(),
       })
-      .where(eq(opportunities.id, id))
-      .returning();
-    return opportunity;
+      .where(eq(opportunities.id, id));
+    const [row] = await db.select().from(opportunities).where(eq(opportunities.id, id)).limit(1);
+    return row!;
   }
 
   async deleteOpportunity(id: string): Promise<void> {
@@ -195,10 +195,11 @@ export class DatabaseStorage implements IStorage {
 
   // Application operations
   async createApplication(applicationData: InsertApplication): Promise<Application> {
-    const [application] = await db
+    const id = (applicationData as any).id || randomUUID();
+    await db
       .insert(applications)
-      .values(applicationData)
-      .returning();
+      .values({ ...(applicationData as any), id });
+    const [application] = await db.select().from(applications).where(eq(applications.id, id)).limit(1);
     
     // Increment the volunteersApplied count
     await db
@@ -208,7 +209,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(opportunities.id, applicationData.opportunityId));
     
-    return application;
+    return application!;
   }
 
   async getApplicationsByUser(userId: string): Promise<ApplicationWithDetails[]> {
@@ -244,12 +245,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateApplication(id: string, status: string): Promise<Application> {
-    const [application] = await db
+    await db
       .update(applications)
       .set({ status })
-      .where(eq(applications.id, id))
-      .returning();
-    return application;
+      .where(eq(applications.id, id));
+    const [application] = await db.select().from(applications).where(eq(applications.id, id)).limit(1);
+    return application!;
   }
 }
 

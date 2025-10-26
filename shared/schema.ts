@@ -4,49 +4,52 @@
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
-  index,
-  jsonb,
-  pgTable,
-  timestamp,
+  mysqlTable,
   varchar,
   text,
-  integer,
+  int,
   boolean,
-  real,
-} from "drizzle-orm/pg-core";
+  double,
+  datetime,
+  json,
+  index,
+} from 'drizzle-orm/mysql-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table (required for Replit Auth)
-export const sessions = pgTable(
+// Session storage (only needed if using server-side sessions; kept for compatibility)
+export const sessions = mysqlTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: varchar("sid", { length: 255 }).primaryKey(),
+    sess: json("sess").notNull(),
+    expire: datetime("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => ({ IDX_session_expire: index("IDX_session_expire").on(table.expire) }),
 );
 
-// User storage table (required for Replit Auth, extended for Voluntapp)
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  // Voluntapp specific fields
-  accountType: varchar("account_type", { length: 20 }).notNull().default("volunteer"), // 'volunteer' or 'organization'
-  location: varchar("location"), // City, State format
-  latitude: real("latitude"),
-  longitude: real("longitude"),
-  interests: text("interests").array(), // Array of interest categories
+// Users
+export const users = mysqlTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(uuid())`),
+  email: varchar("email", { length: 255 }).unique(),
+  phone: varchar("phone", { length: 32 }).unique(),
+  passwordHash: varchar("password_hash", { length: 255 }),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  profileImageUrl: varchar("profile_image_url", { length: 500 }),
+  accountType: varchar("account_type", { length: 20 }).notNull().default("volunteer"),
+  location: varchar("location", { length: 255 }),
+  latitude: double("latitude"),
+  longitude: double("longitude"),
+  interests: json("interests"),
   bio: text("bio"),
-  organizationName: varchar("organization_name"), // For organization accounts
-  hoursVolunteered: integer("hours_volunteered").default(0),
-  opportunitiesCompleted: integer("opportunities_completed").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  organizationName: varchar("organization_name", { length: 255 }),
+  hoursVolunteered: int("hours_volunteered").default(0),
+  opportunitiesCompleted: int("opportunities_completed").default(0),
+  emailVerified: boolean("email_verified").default(false),
+  phoneVerified: boolean("phone_verified").default(false),
+  createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -54,25 +57,25 @@ export const usersRelations = relations(users, ({ many }) => ({
   applications: many(applications),
 }));
 
-// Volunteer opportunities
-export const opportunities = pgTable("opportunities", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  organizationId: varchar("organization_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+// Opportunities
+export const opportunities = mysqlTable("opportunities", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(uuid())`),
+  organizationId: varchar("organization_id", { length: 36 }).notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description").notNull(),
-  category: varchar("category", { length: 50 }).notNull(), // Education, Environment, Health, Community, etc.
+  category: varchar("category", { length: 50 }).notNull(),
   imageUrl: text("image_url"),
-  location: varchar("location").notNull(),
-  latitude: real("latitude"),
-  longitude: real("longitude"),
-  dateTime: timestamp("date_time"),
-  duration: varchar("duration"), // "2 hours", "Half day", "Full day", etc.
-  volunteersNeeded: integer("volunteers_needed").default(10),
-  volunteersApplied: integer("volunteers_applied").default(0),
-  skills: text("skills").array(), // Skills required or beneficial
-  status: varchar("status", { length: 20 }).default("active"), // active, paused, completed, cancelled
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  location: varchar("location", { length: 255 }).notNull(),
+  latitude: double("latitude"),
+  longitude: double("longitude"),
+  dateTime: datetime("date_time"),
+  duration: varchar("duration", { length: 50 }),
+  volunteersNeeded: int("volunteers_needed").default(10),
+  volunteersApplied: int("volunteers_applied").default(0),
+  skills: json("skills"),
+  status: varchar("status", { length: 20 }).default("active"),
+  createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const opportunitiesRelations = relations(opportunities, ({ one, many }) => ({
@@ -83,15 +86,15 @@ export const opportunitiesRelations = relations(opportunities, ({ one, many }) =
   applications: many(applications),
 }));
 
-// Applications/Participation tracking
-export const applications = pgTable("applications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  opportunityId: varchar("opportunity_id").notNull().references(() => opportunities.id, { onDelete: 'cascade' }),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  status: varchar("status", { length: 20 }).default("pending"), // pending, accepted, rejected, completed
-  message: text("message"), // Optional message from volunteer
-  appliedAt: timestamp("applied_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
+// Applications
+export const applications = mysqlTable("applications", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(uuid())`),
+  opportunityId: varchar("opportunity_id", { length: 36 }).notNull(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending"),
+  message: text("message"),
+  appliedAt: datetime("applied_at").default(sql`CURRENT_TIMESTAMP`),
+  completedAt: datetime("completed_at"),
 });
 
 export const applicationsRelations = relations(applications, ({ one }) => ({

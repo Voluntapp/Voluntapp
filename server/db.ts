@@ -1,16 +1,20 @@
-// Reference: javascript_database blueprint
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+// MySQL database client using drizzle-orm/mysql2
+import { drizzle } from 'drizzle-orm/mysql2';
+import mysql from 'mysql2/promise';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+let connection: mysql.Pool;
+if (databaseUrl) {
+  connection = mysql.createPool({ uri: databaseUrl });
+} else {
+  const host = process.env.MYSQL_HOST || 'localhost';
+  const user = process.env.MYSQL_USER || 'root';
+  const password = process.env.MYSQL_PASSWORD || '';
+  const database = process.env.MYSQL_DATABASE || 'voluntapp';
+  const port = Number(process.env.MYSQL_PORT || 3306);
+  connection = mysql.createPool({ host, user, password, database, port, waitForConnections: true, connectionLimit: 10 });
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle(connection, { schema });

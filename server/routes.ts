@@ -2,7 +2,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { isAuthenticated } from "./auth";
 import { 
   updateUserProfileSchema, 
   insertOpportunitySchema, 
@@ -11,13 +11,10 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -29,7 +26,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User profile routes
   app.patch('/api/users/profile', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const validatedData = updateUserProfileSchema.parse(req.body);
       
       // Geocode location if provided
@@ -53,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Opportunity routes with matching algorithm
   app.get('/api/opportunities', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const user = await storage.getUser(userId);
       const opportunities = await storage.getOpportunitiesWithMatching(
         user?.latitude,
@@ -69,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/opportunities/mine', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const opportunities = await storage.getOpportunitiesByOrganization(userId);
       res.json(opportunities);
     } catch (error) {
@@ -78,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/opportunities/:id', async (req, res) => {
+  app.get('/api/opportunities/:id', async (req: any, res: any) => {
     try {
       const opportunity = await storage.getOpportunity(req.params.id);
       if (!opportunity) {
@@ -93,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/opportunities', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const validatedData = insertOpportunitySchema.parse({
         ...req.body,
         organizationId: userId,
@@ -119,7 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/opportunities/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const opportunity = await storage.getOpportunity(req.params.id);
       
       if (!opportunity || opportunity.organizationId !== userId) {
@@ -137,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/opportunities/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const opportunity = await storage.getOpportunity(req.params.id);
       
       if (!opportunity || opportunity.organizationId !== userId) {
@@ -155,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Application routes
   app.post('/api/applications', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const validatedData = insertApplicationSchema.parse({
         ...req.body,
         userId,
@@ -170,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/applications/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const applications = await storage.getApplicationsByUser(userId);
       res.json(applications);
     } catch (error) {
@@ -179,9 +176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/applications/opportunity/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/applications/opportunity/:id', isAuthenticated, async (req: any, res: any) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId as string;
       const opportunity = await storage.getOpportunity(req.params.id);
       
       if (!opportunity || opportunity.organizationId !== userId) {
