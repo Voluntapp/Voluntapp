@@ -67,10 +67,5 @@ From `apps/mobile` on macOS:
 - For Android build issues, confirm Java 17: `java -version`, and ensure ANDROID_HOME and SDK paths are set.
 - Delete `node_modules` and reinstall if you hit module resolution issues.
 
-## Contributing
-- Use feature branches and open PRs.
-- Run `npm run check` at the root to typecheck.
-- After adding/removing RN native modules, run `npx expo prebuild --platform ios|android` if needed.
-
 ## License
 MIT
