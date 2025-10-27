@@ -73,11 +73,12 @@ app.use((req: Request & { rawBody?: any }, res: Response & { json: (body: any, .
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  // On some Windows setups binding to 0.0.0.0 can throw ENOTSUP. Prefer HOST env, then 127.0.0.1 on Windows, else 0.0.0.0
+  const host = process.env.HOST || (process.platform === 'win32' ? '127.0.0.1' : '0.0.0.0');
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`serving on http://${host}:${port}`);
   });
 })();
