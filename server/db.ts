@@ -10,7 +10,7 @@ if (databaseUrl) {
   connection = mysql.createPool({ uri: databaseUrl });
 } else {
   const host = process.env.MYSQL_HOST || 'localhost';
-  const user = process.env.MYSQL_USER || 'root';
+  const user = process.env.MYSQL_USER || 'voluntuser';
   const password = process.env.MYSQL_PASSWORD || '';
   const database = process.env.MYSQL_DATABASE || 'voluntapp';
   const port = Number(process.env.MYSQL_PORT || 3306);

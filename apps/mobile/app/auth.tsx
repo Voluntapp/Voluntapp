@@ -1,27 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Alert, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { api } from '@/lib/api';
 import { setAuthToken } from '@/lib/api';
 
 const { width } = Dimensions.get('window');
-
-function VoluntappLogo({ size = 60 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="48" fill="#FF6B00" opacity="0.1" />
-      <Path
-        d="M 30 25 L 50 75 L 70 25"
-        stroke="#FF6B00"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
 
 export default function Auth() {
   const router = useRouter();
@@ -29,13 +14,102 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [role, setRole] = useState<'volunteer' | 'organization'>('volunteer');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [useBiometrics, setUseBiometrics] = useState(false);
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState<string>('');
+
+  useEffect(() => {
+    checkBiometrics();
+    loadSavedCredentials();
+  }, []);
+
+  const checkBiometrics = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      
+      if (compatible && enrolled) {
+        setBiometricsAvailable(true);
+        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+          setBiometricType(Platform.OS === 'ios' ? 'Face ID' : 'Face Recognition');
+        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+          setBiometricType(Platform.OS === 'ios' ? 'Touch ID' : 'Fingerprint');
+        } else {
+          setBiometricType('Biometrics');
+        }
+      }
+    } catch (error) {
+      console.error('Biometrics check failed:', error);
+    }
+  };
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedIdentifier = await SecureStore.getItemAsync('saved_identifier');
+      const savedRememberMe = await SecureStore.getItemAsync('remember_me');
+      const savedUseBiometrics = await SecureStore.getItemAsync('use_biometrics');
+      
+      if (savedRememberMe === 'true' && savedIdentifier) {
+        setIdentifier(savedIdentifier);
+        setRememberMe(true);
+      }
+      
+      if (savedUseBiometrics === 'true') {
+        setUseBiometrics(true);
+        // Optionally auto-trigger biometric auth here
+      }
+    } catch (error) {
+      console.error('Failed to load saved credentials:', error);
+    }
+  };
+
+  const authenticateWithBiometrics = async (): Promise<boolean> => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Authenticate with ${biometricType}`,
+        fallbackLabel: 'Use password',
+        disableDeviceFallback: false,
+      });
+      return result.success;
+    } catch (error) {
+      console.error('Biometric authentication failed:', error);
+      return false;
+    }
+  };
 
   const login = async () => {
     try {
+      // If biometrics enabled, authenticate first
+      if (useBiometrics && biometricsAvailable) {
+        const authenticated = await authenticateWithBiometrics();
+        if (!authenticated) {
+          Alert.alert('Authentication Failed', 'Biometric authentication was not successful');
+          return;
+        }
+      }
+
       const res = await api('/api/auth/login', { method: 'POST', body: { identifier, password } });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       await setAuthToken(data.token || null);
+      
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        await SecureStore.setItemAsync('saved_identifier', identifier);
+        await SecureStore.setItemAsync('saved_password', password);
+        await SecureStore.setItemAsync('remember_me', 'true');
+      } else {
+        await SecureStore.deleteItemAsync('saved_identifier');
+        await SecureStore.deleteItemAsync('saved_password');
+        await SecureStore.deleteItemAsync('remember_me');
+      }
+      
+      // Save biometric preference
+      await SecureStore.setItemAsync('use_biometrics', useBiometrics ? 'true' : 'false');
+      
       router.replace('/(tabs)/discovery');
     } catch (e: any) {
       Alert.alert('Login failed', e.message);
@@ -44,10 +118,21 @@ export default function Auth() {
 
   const signup = async () => {
     try {
-      const res = await api('/api/auth/signup', { method: 'POST', body: { email: identifier.includes('@') ? identifier : undefined, phone: !identifier.includes('@') ? identifier : undefined, password, name, role: 'volunteer' } });
+      const res = await api('/api/auth/signup', { method: 'POST', body: { email: identifier.includes('@') ? identifier : undefined, phone: !identifier.includes('@') ? identifier : undefined, password, name, role } });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       await setAuthToken(data.token || null);
+      
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        await SecureStore.setItemAsync('saved_identifier', identifier);
+        await SecureStore.setItemAsync('saved_password', password);
+        await SecureStore.setItemAsync('remember_me', 'true');
+      }
+      
+      // Save biometric preference
+      await SecureStore.setItemAsync('use_biometrics', useBiometrics ? 'true' : 'false');
+      
       router.replace('/(tabs)/discovery');
     } catch (e: any) {
       Alert.alert('Signup failed', e.message);
@@ -64,7 +149,9 @@ export default function Auth() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <VoluntappLogo size={80} />
+          <View style={styles.logoPlaceholder}>
+            <Text style={styles.logoText}>V</Text>
+          </View>
           <Text style={styles.title}>Voluntapp</Text>
           <Text style={styles.subtitle}>
             {isLogin ? 'Welcome back!' : 'Create your account'}
@@ -98,16 +185,71 @@ export default function Auth() {
           </View>
 
           {!isLogin && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput 
-                placeholder="Enter your full name" 
-                value={name} 
-                onChangeText={setName} 
-                style={styles.input}
-                placeholderTextColor="#999"
-              />
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput 
+                  placeholder="Enter your full name" 
+                  value={name} 
+                  onChangeText={setName} 
+                  style={styles.input}
+                  placeholderTextColor="#999"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>I am...</Text>
+                <View style={styles.roleSelector}>
+                  <Pressable 
+                    style={[styles.roleButton, role === 'volunteer' && styles.roleButtonActive]}
+                    onPress={() => setRole('volunteer')}
+                  >
+                    <Text style={[styles.roleButtonText, role === 'volunteer' && styles.roleButtonTextActive]}>
+                      👋 Volunteer
+                    </Text>
+                    <Text style={[styles.roleButtonSubtext, role === 'volunteer' && styles.roleButtonSubtextActive]}>
+                      Looking for opportunities
+                    </Text>
+                  </Pressable>
+                  
+                  <Pressable 
+                    style={[styles.roleButton, role === 'organization' && styles.roleButtonActive]}
+                    onPress={() => setRole('organization')}
+                  >
+                    <Text style={[styles.roleButtonText, role === 'organization' && styles.roleButtonTextActive]}>
+                      🏢 Organization
+                    </Text>
+                    <Text style={[styles.roleButtonSubtext, role === 'organization' && styles.roleButtonSubtextActive]}>
+                      Offering opportunities
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Remember Me Checkbox */}
+          <Pressable 
+            style={styles.checkboxContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
             </View>
+            <Text style={styles.checkboxLabel}>Remember me on this device</Text>
+          </Pressable>
+
+          {/* Biometrics Checkbox */}
+          {biometricsAvailable && (
+            <Pressable 
+              style={styles.checkboxContainer}
+              onPress={() => setUseBiometrics(!useBiometrics)}
+            >
+              <View style={[styles.checkbox, useBiometrics && styles.checkboxChecked]}>
+                {useBiometrics && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>Use {biometricType}</Text>
+            </Pressable>
           )}
 
           <Pressable 
@@ -154,6 +296,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
     gap: 12,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoText: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#FF6B00',
   },
   title: {
     fontSize: Math.min(36, width * 0.09),
@@ -240,5 +395,71 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 15,
+  },
+  // Checkbox styles
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: '#FF6B00',
+    borderColor: '#FF6B00',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  checkboxLabel: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
+  },
+  // Role selector styles
+  roleSelector: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  roleButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  roleButtonActive: {
+    backgroundColor: '#FFF4ED',
+    borderColor: '#FF6B00',
+  },
+  roleButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#666',
+    marginBottom: 4,
+  },
+  roleButtonTextActive: {
+    color: '#FF6B00',
+  },
+  roleButtonSubtext: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+  },
+  roleButtonSubtextActive: {
+    color: '#FF6B00',
   },
 });

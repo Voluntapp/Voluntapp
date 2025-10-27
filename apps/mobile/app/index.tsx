@@ -1,31 +1,90 @@
-import { Link } from 'expo-router';
-import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
-
-const { width } = Dimensions.get('window');
-
-function VoluntappLogo({ size = 80 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="48" fill="#FF6B00" opacity="0.1" />
-      <Path
-        d="M 30 25 L 50 75 L 70 25"
-        stroke="#FF6B00"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
+import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { api, setAuthToken } from '@/lib/api';
 
 export default function Landing() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    checkAutoLogin();
+  }, []);
+
+  const checkAutoLogin = async () => {
+    try {
+      const rememberMe = await SecureStore.getItemAsync('remember_me');
+      const savedIdentifier = await SecureStore.getItemAsync('saved_identifier');
+      const savedPassword = await SecureStore.getItemAsync('saved_password');
+      const useBiometrics = await SecureStore.getItemAsync('use_biometrics');
+      const savedToken = await SecureStore.getItemAsync('auth_token');
+
+      // If remember me is enabled and we have credentials
+      if (rememberMe === 'true' && savedIdentifier && savedPassword) {
+        // Check if biometrics is required
+        if (useBiometrics === 'true') {
+          const compatible = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = await LocalAuthentication.isEnrolledAsync();
+          
+          if (compatible && enrolled) {
+            const result = await LocalAuthentication.authenticateAsync({
+              promptMessage: 'Authenticate to continue',
+              fallbackLabel: 'Use password',
+              disableDeviceFallback: false,
+            });
+            
+            if (!result.success) {
+              setIsChecking(false);
+              return;
+            }
+          }
+        }
+
+        // Try to login automatically
+        const res = await api('/api/auth/login', {
+          method: 'POST',
+          body: { identifier: savedIdentifier, password: savedPassword },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          await setAuthToken(data.token || null);
+          router.replace('/(tabs)/discovery');
+          return;
+        }
+      } else if (savedToken) {
+        // Check if existing token is still valid
+        await setAuthToken(savedToken);
+        const testRes = await api('/api/auth/user');
+        if (testRes.ok) {
+          router.replace('/(tabs)/discovery');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Auto-login failed:', error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  if (isChecking) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B00" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <VoluntappLogo size={100} />
+          <View style={styles.logoPlaceholder}>
+            <Text style={styles.logoText}>V</Text>
+          </View>
           <Text style={styles.title}>Voluntapp</Text>
           <Text style={styles.subtitle}>
             Discover meaningful volunteer opportunities near you
@@ -33,11 +92,12 @@ export default function Landing() {
         </View>
 
         <View style={styles.buttonContainer}>
-          <Link href="/auth" asChild>
-            <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Get Started</Text>
-            </Pressable>
-          </Link>
+          <Pressable 
+            style={styles.primaryButton}
+            onPress={() => router.push('/auth')}
+          >
+            <Text style={styles.primaryButtonText}>Get Started</Text>
+          </Pressable>
           <Text style={styles.footerText}>
             Log in or sign up to discover volunteer opportunities
           </Text>
@@ -48,13 +108,19 @@ export default function Landing() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
   content: {
     flex: 1,
-    paddingHorizontal: Math.max(24, width * 0.08),
+    paddingHorizontal: 24,
     paddingVertical: 48,
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -66,15 +132,29 @@ const styles = StyleSheet.create({
     gap: 16,
     maxWidth: 500,
   },
+  logoPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoText: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#FF6B00',
+  },
   title: {
-    fontSize: Math.min(48, width * 0.12),
+    fontSize: 48,
     fontWeight: '800',
     color: '#1A1A1A',
     textAlign: 'center',
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: Math.min(18, width * 0.045),
+    fontSize: 18,
     color: '#666',
     textAlign: 'center',
     lineHeight: 26,
@@ -99,21 +179,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    textAlign: 'center',
-    fontWeight: '700',
-    fontSize: 17,
-    letterSpacing: 0.3,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FF6B00',
-    borderWidth: 2,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-  },
-  secondaryButtonText: {
-    color: '#FF6B00',
     textAlign: 'center',
     fontWeight: '700',
     fontSize: 17,
