@@ -34,7 +34,20 @@ From the repository root:
    - `cd apps/mobile && npm install`
 
 ## Environment Variables
+
+### Server/Web
 Some features may require environment variables for the server (e.g., database connection). Create a `.env` in the project root if needed and mirror keys referenced by `server/index.ts` and `drizzle.config.ts`.
+
+### Mobile App
+The mobile app reads the backend API URL from:
+1. `apps/mobile/app.json` → `extra.apiUrl` (highest priority)
+2. `apps/mobile/.env` → `EXPO_PUBLIC_API_BASE`
+3. Defaults to `http://localhost:5000`
+
+For development with a remote backend (e.g., ngrok), create `apps/mobile/.env`:
+```
+EXPO_PUBLIC_API_BASE=https://your-backend-url.com
+```
 
 ## Web (Development)
 From the repository root:
@@ -56,16 +69,85 @@ From `apps/mobile`:
 
 ## Mobile (iOS)
 From `apps/mobile` on macOS:
-1. Ensure Xcode and CocoaPods are installed (`sudo gem install cocoapods` if needed).
-2. Install deps (first time): `npm install`
-   - This will automatically run `npx pod-install ios`.
-3. Run on iOS simulator: `npm run ios`
-   - To open in Xcode: `open ios/Voluntapp.xcworkspace`
+
+### Prerequisites
+1. **Xcode** (from App Store) - Open once to complete setup
+2. **Command Line Tools**: Xcode → Settings → Locations → Command Line Tools
+3. **CocoaPods**: `sudo gem install cocoapods`
+4. **Watchman** (optional but recommended): `brew install watchman`
+
+### Initial Setup
+1. Install dependencies:
+   ```bash
+   cd apps/mobile
+   npm install
+   ```
+   This automatically runs `npx pod-install ios` via postinstall script.
+
+2. Configure backend URL (if using remote backend):
+   - Create `.env` file in `apps/mobile/`:
+     ```
+     EXPO_PUBLIC_API_BASE=https://your-backend-url.com
+     ```
+   - Or update `apiUrl` in `apps/mobile/app.json` under `extra` section
+
+### Run on iOS Simulator
+```bash
+npm run ios
+```
+This builds the app and launches it in the iOS Simulator.
+
+### Run on Physical iPhone/iPad
+1. Connect your device via USB
+2. Run:
+   ```bash
+   npm run ios -- --device
+   ```
+3. Select your physical device from the list
+4. **First time only**: 
+   - Open `ios/Voluntapp.xcworkspace` in Xcode
+   - Select your device as the target
+   - Go to Signing & Capabilities
+   - Select your Team (Apple ID)
+   - Xcode will automatically provision the app
+5. On your device: Settings → General → VPN & Device Management → Trust the developer certificate
+
+### Alternative: Open in Xcode
+```bash
+open ios/Voluntapp.xcworkspace
+```
+Then select your device/simulator and press Run (▶️).
 
 ## Troubleshooting
-- If iOS pods fail to install, run: `npx pod-install ios` inside `apps/mobile`, or `cd ios && pod install`.
-- For Android build issues, confirm Java 17: `java -version`, and ensure ANDROID_HOME and SDK paths are set.
-- Delete `node_modules` and reinstall if you hit module resolution issues.
+
+### iOS
+- **Pods fail to install**: Run `npx pod-install ios` inside `apps/mobile`, or `cd ios && pod install --repo-update`
+- **Build errors**: Clean build folder in Xcode (Product → Clean Build Folder) or delete `ios/build/`
+- **Metro cache issues**: `npx react-native start --reset-cache`
+- **Signing errors**: Open `ios/Voluntapp.xcworkspace` in Xcode and configure Signing & Capabilities with your Apple ID
+- **Device not detected**: Ensure device is unlocked, trusted ("Trust This Computer" prompt), and USB cable supports data transfer
+
+### Android
+- **Build issues**: Confirm Java 17 with `java -version`, and ensure ANDROID_HOME and SDK paths are set
+- **Emulator not starting**: Open Android Studio → AVD Manager and verify emulator configuration
+
+### General
+- **Module resolution issues**: Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- **Backend connection fails**: Verify API URL in mobile app config and ensure backend is accessible from device/simulator
 
 ## License
-MIT
+Apache License 2.0
+
+Copyright 2025 Voluntapp Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

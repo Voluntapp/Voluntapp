@@ -34,7 +34,8 @@
     "extra": {
       "eas": {
         "projectId": ""
-      }
+      },
+      "apiUrl": "https://87e66f5bf4c0.ngrok-free.app"
     }
   }
 }

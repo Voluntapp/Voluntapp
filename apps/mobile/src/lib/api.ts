@@ -1,7 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
+// Read API URL from app.json extra config, fallback to env var, then localhost
+const apiUrlFromConfig = Constants.expoConfig?.extra?.apiUrl;
 const envBase = (typeof globalThis !== 'undefined' && (globalThis as any).process?.env?.EXPO_PUBLIC_API_BASE) as string | undefined;
-export const API_BASE = envBase || 'http://localhost:5000';
+export const API_BASE = apiUrlFromConfig || envBase || 'http://localhost:5000';
+
+// Debug: Log the API base URL
+console.log('🔗 API_BASE configured as:', API_BASE);
 
 type Options = { method?: string; body?: any; headers?: Record<string, string> };
 
@@ -27,7 +33,7 @@ async function getAuthToken(): Promise<string | null> {
 export async function api(path: string, opts: Options = {}) {
   const { method = 'GET', body, headers = {} } = opts;
   const token = await getAuthToken();
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   return fetch(`${API_BASE}${path}`, {
     method,
     credentials: 'include',
@@ -35,7 +41,7 @@ export async function api(path: string, opts: Options = {}) {
       'Content-Type': 'application/json',
       ...authHeader,
       ...headers,
-    },
+    } as HeadersInit,
     body: body ? JSON.stringify(body) : undefined,
   });
 }
