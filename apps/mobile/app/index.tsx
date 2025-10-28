@@ -4,9 +4,11 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-nati
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { api, setAuthToken } from '@/lib/api';
+import { useTheme } from '../src/theme/useTheme';
 
 export default function Landing() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
@@ -72,33 +74,33 @@ export default function Landing() {
 
   if (isChecking) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoText}>V</Text>
+          <View style={[styles.logoPlaceholder, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[styles.logoText, { color: colors.primary }]}>V</Text>
           </View>
-          <Text style={styles.title}>Voluntapp</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Voluntapp</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Discover meaningful volunteer opportunities near you
           </Text>
         </View>
 
         <View style={styles.buttonContainer}>
           <Pressable 
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/auth')}
           >
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </Pressable>
-          <Text style={styles.footerText}>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
             Log in or sign up to discover volunteer opportunities
           </Text>
         </View>
@@ -112,11 +114,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
   },
   content: {
     flex: 1,
@@ -136,7 +136,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -144,18 +143,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 48,
     fontWeight: '800',
-    color: '#FF6B00',
   },
   title: {
     fontSize: 48,
     fontWeight: '800',
-    color: '#1A1A1A',
     textAlign: 'center',
     letterSpacing: -1,
   },
   subtitle: {
     fontSize: 18,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 26,
     paddingHorizontal: 16,
@@ -167,11 +163,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   primaryButton: {
-    backgroundColor: '#FF6B00',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 16,
-    shadowColor: '#FF6B00',
+    shadowColor: '#FF8C42',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -185,7 +180,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   footerText: {
-    color: '#999',
     textAlign: 'center',
     fontSize: 14,
     marginTop: 16,

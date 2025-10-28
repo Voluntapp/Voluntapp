@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Fancy gradient background -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9F68;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FF8C42;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6B35;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Glow effect -->
+    <radialGradient id="glow" cx="50%" cy="30%">
+      <stop offset="0%" style="stop-color:#FFB88C;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#FF8C42;stop-opacity:0" />
+    </radialGradient>
+    
+    <!-- Shadow filter -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.384"/>
+      <feOffset dx="0.384" dy="0.48" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.5"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Inner glow for V -->
+    <filter id="innerGlow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.48" result="blur"/>
+      <feComposite in="blur" in2="SourceGraphic" operator="out" result="inverse"/>
+      <feFlood flood-color="white" flood-opacity="0.6" result="color"/>
+      <feComposite in="color" in2="inverse" operator="in" result="shadow"/>
+      <feComposite in="shadow" in2="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with fancy gradient -->
+  <rect width="48" height="48" fill="url(#bgGradient)" rx="10.56"/>
+  
+  <!-- Subtle glow overlay -->
+  <ellipse cx="24" cy="14.399999999999999" rx="19.200000000000003" ry="16.799999999999997" fill="url(#glow)"/>
+  
+  <!-- Main V with shadow -->
+  <g filter="url(#shadow)">
+    <path d="M 8.64 10.56 L 24 39.36 L 39.36 10.56" 
+          stroke="white" 
+          stroke-width="6.720000000000001" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"
+          opacity="0.95"/>
+  </g>
+  
+  <!-- Inner highlight on V -->
+  <path d="M 10.08 12 L 24 36" 
+        stroke="rgba(255,255,255,0.6)" 
+        stroke-width="2.4000000000000004" 
+        stroke-linecap="round" 
+        fill="none"/>
+  
+  <!-- Decorative accent - small heart at bottom of V -->
+  <circle cx="24" cy="39.36" r="2.16" fill="white" opacity="0.9"/>
+  <path d="M 23.04 38.88 Q 24 37.92 24.96 38.88" 
+        stroke="white" 
+        stroke-width="0.96" 
+        fill="none" 
+        stroke-linecap="round"/>
+</svg>
